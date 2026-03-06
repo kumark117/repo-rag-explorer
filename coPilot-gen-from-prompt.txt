@@ -1,0 +1,261 @@
+COPILOT MASTER PROMPT PROJECT: RepoRAG Explorer
+
+You are a senior software engineer generating a complete production-quality Next.js project.
+
+Project Name: RepoRAG Explorer
+Tagline: AI Codebase Explorer using RAG (Retrieval Augmented Generation)
+
+Generate ALL code, folders, and files needed.
+Do not skip files.
+Do not leave TODO comments.
+Use clean TypeScript.
+
+------------------------------------------------------------
+OBJECTIVE
+------------------------------------------------------------
+Build an AI developer tool that analyzes GitHub repositories with Retrieval Augmented Generation (RAG):
+
+1) Accepts a GitHub repository URL
+2) Downloads the repository
+3) Reads source files
+4) Splits files into chunks
+5) Generates embeddings
+6) Stores embeddings in a vector store
+7) Lets users ask questions about the codebase
+8) Uses RAG to generate answers grounded in code
+
+------------------------------------------------------------
+TECH STACK
+------------------------------------------------------------
+- Next.js (App Router)
+- React
+- TypeScript
+- Node.js API routes
+- OpenAI API
+- Embeddings model: text-embedding-3-small
+- Chat model: gpt-4o-mini
+- Vector store: simple in-memory implementation
+- Styling: minimal CSS (or Tailwind if you choose, but keep it simple)
+
+------------------------------------------------------------
+ARCHITECTURE
+------------------------------------------------------------
+Frontend
+	-> API Layer
+
+Two pipelines:
+
+INGESTION PIPELINE
+Repo URL
+ -> Download repository
+ -> Read allowed source files
+ -> Chunk files
+ -> Create embeddings
+ -> Store in vector DB
+
+QUERY PIPELINE
+User question
+ -> Embed query
+ -> Vector similarity search
+ -> Retrieve top chunks
+ -> Send context + question to LLM
+ -> Return grounded answer
+
+------------------------------------------------------------
+REQUIRED FOLDER STRUCTURE
+------------------------------------------------------------
+repo-rag-explorer/
+	app/
+		page.tsx
+		explorer/
+			page.tsx
+		api/
+			ingest/
+				route.ts
+			query/
+				route.ts
+	components/
+		RepoLoader.tsx
+		FileTree.tsx
+		CodeViewer.tsx
+		ChatPanel.tsx
+		ExplorerLayout.tsx
+	lib/
+		githubLoader.ts
+		chunker.ts
+		embeddings.ts
+		vectorStore.ts
+		ragPipeline.ts
+
+Also include any additional standard project files needed for a complete runnable Next.js TypeScript app, including but not limited to:
+- package.json
+- tsconfig.json
+- next.config.ts
+- app/layout.tsx
+- app/globals.css
+- .gitignore
+- .env.example
+- README.md
+
+------------------------------------------------------------
+UI REQUIREMENTS
+------------------------------------------------------------
+Create a 3-panel developer-tool layout:
+
+| Files | Code Viewer | AI Chat |
+
+- Top area must allow entering a GitHub repository URL and triggering ingestion.
+- Left panel: file tree (placeholder before ingestion, populated after ingestion).
+- Middle panel: code viewer (placeholder before file selection).
+- Right panel: chat interface.
+- Keep UI minimal, clean, and readable.
+
+------------------------------------------------------------
+INGESTION API
+------------------------------------------------------------
+Endpoint:
+POST /api/ingest
+
+Request body:
+{ "repoUrl": "string" }
+
+Pipeline requirements:
+1) Download repository as zip from GitHub
+2) Extract files
+3) Scan files recursively
+
+Include only these extensions:
+- .ts
+- .tsx
+- .js
+- .jsx
+- .py
+- .md
+
+Ignore directories:
+- node_modules
+- dist
+- build
+
+Return useful ingestion metadata (e.g., file count/chunk count) and file list for UI.
+
+------------------------------------------------------------
+CHUNKING
+------------------------------------------------------------
+Implement chunking around 500-800 characters per chunk.
+
+Requirements:
+- Preserve readability where possible (prefer split near newline boundaries)
+- Include metadata for every chunk:
+	- file name
+	- file path
+	- chunk id
+
+------------------------------------------------------------
+EMBEDDINGS
+------------------------------------------------------------
+Use OpenAI embeddings model:
+- text-embedding-3-small
+
+Implement:
+- embedText(text: string)
+
+Optionally also implement batch embeddings for efficiency.
+
+------------------------------------------------------------
+VECTOR STORE
+------------------------------------------------------------
+Implement a simple in-memory vector store.
+
+Required methods:
+- addEmbedding(chunk, embedding)
+- searchSimilar(queryEmbedding, topK = 5)
+
+Similarity metric:
+- cosine similarity
+
+Return the highest similarity chunks with scores.
+
+------------------------------------------------------------
+QUERY API + RAG
+------------------------------------------------------------
+Endpoint:
+POST /api/query
+
+Request body:
+{ "question": "string" }
+
+Pipeline:
+1) Embed user question
+2) Search vector store
+3) Retrieve top 5 chunks
+4) Send chunks + question to LLM
+5) Return answer and source chunk metadata
+
+Use model:
+- gpt-4o-mini
+
+Prompt template (must be used in spirit):
+
+You are a senior software engineer analyzing a codebase.
+
+Question: {question}
+
+Relevant Code: {chunks}
+
+Explain clearly and mention file names when possible.
+
+------------------------------------------------------------
+CHAT PANEL REQUIREMENTS
+------------------------------------------------------------
+ChatPanel must:
+- Send POST request to /api/query
+- Body: { question }
+- Display AI response
+- Show basic loading and error states
+- Optionally display source files used
+
+------------------------------------------------------------
+ENVIRONMENT VARIABLES
+------------------------------------------------------------
+Use:
+OPENAI_API_KEY=
+
+Provide .env.example with this key.
+
+------------------------------------------------------------
+README REQUIREMENTS
+------------------------------------------------------------
+Generate a professional README containing:
+- Project Overview
+- Architecture Diagram (ASCII)
+- Explanation of RAG in this project
+- Local setup instructions
+- Deployment instructions for Vercel
+
+Local development commands:
+- npm install
+- npm run dev
+
+------------------------------------------------------------
+EXPECTED USER FLOW
+------------------------------------------------------------
+1) User enters GitHub repo URL
+2) System indexes repository
+3) User asks questions like:
+	 - Where is authentication implemented?
+	 - Explain architecture of this repo.
+	 - Which files contain API calls?
+4) System answers grounded in retrieved code chunks.
+
+------------------------------------------------------------
+IMPLEMENTATION QUALITY BAR
+------------------------------------------------------------
+- Must be fully runnable without missing files.
+- Keep TypeScript types clean and strict where practical.
+- Handle errors gracefully in APIs and UI.
+- No placeholder TODOs.
+- Keep code organized and production-quality.
+
+Now generate the complete project code and file contents.
+

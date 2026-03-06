@@ -1,0 +1,144 @@
+COPILOT STRICT MVP PROMPT: RepoRAG Explorer
+
+You are a senior software engineer. Generate a complete, runnable Next.js TypeScript project exactly as specified.
+
+Project:
+- Name: RepoRAG Explorer
+- Tagline: AI Codebase Explorer using RAG
+
+Rules:
+- Generate ALL files with full code.
+- No TODOs.
+- No placeholder stubs.
+- Keep implementation minimal and production-clean.
+- Do not add extra pages/features beyond scope.
+
+============================================================
+STACK
+============================================================
+- Next.js (App Router)
+- React + TypeScript
+- Node.js route handlers
+- OpenAI API
+- Embeddings: text-embedding-3-small
+- LLM: gpt-4o-mini
+- In-memory vector store
+- Minimal CSS
+
+============================================================
+REQUIRED FILE/FOLDER STRUCTURE
+============================================================
+repo-rag-explorer/
+  app/
+    page.tsx
+    layout.tsx
+    globals.css
+    explorer/
+      page.tsx
+    api/
+      ingest/
+        route.ts
+      query/
+        route.ts
+  components/
+    RepoLoader.tsx
+    FileTree.tsx
+    CodeViewer.tsx
+    ChatPanel.tsx
+    ExplorerLayout.tsx
+  lib/
+    githubLoader.ts
+    chunker.ts
+    embeddings.ts
+    vectorStore.ts
+    ragPipeline.ts
+    types.ts
+  package.json
+  tsconfig.json
+  next.config.ts
+  next-env.d.ts
+  .gitignore
+  .env.example
+  README.md
+
+============================================================
+FUNCTIONAL REQUIREMENTS
+============================================================
+1) Ingestion
+- POST /api/ingest
+- Body: { repoUrl: string }
+- Download GitHub repo zip
+- Extract and scan files recursively
+- Include only: .ts .tsx .js .jsx .py .md
+- Ignore: node_modules dist build
+- Chunk files (500-800 chars)
+- Embed chunks
+- Store in in-memory vector store
+- Return stats + file list
+
+2) Query
+- POST /api/query
+- Body: { question: string }
+- Embed question
+- searchSimilar(topK=5)
+- Send retrieved chunks + question to gpt-4o-mini
+- Return answer + sources
+
+3) RAG Prompt
+Use this template:
+
+You are a senior software engineer analyzing a codebase.
+
+Question: {question}
+
+Relevant Code: {chunks}
+
+Explain clearly and mention file names when possible.
+
+4) UI
+- Top repo URL input + index button
+- 3-panel layout:
+  - Left: Files panel (tree/list)
+  - Middle: Code Viewer panel
+  - Right: AI Chat panel
+- ChatPanel sends POST /api/query with { question }
+- Display AI response and simple loading/error state
+
+============================================================
+IMPLEMENTATION DETAILS
+============================================================
+- Use strict TypeScript-compatible code.
+- Add OpenAI helpers:
+  - embedText(text)
+  - optional embedTexts(batch)
+- Vector store methods:
+  - addEmbedding(chunk, embedding)
+  - searchSimilar(queryEmbedding, topK=5)
+- Similarity: cosine similarity.
+- Keep vectors in memory only.
+- Handle errors gracefully in APIs.
+
+============================================================
+ENV
+============================================================
+.env.example must include:
+OPENAI_API_KEY=
+
+============================================================
+README (REQUIRED)
+============================================================
+Include:
+- Project Overview
+- ASCII architecture diagram
+- How RAG works in this app
+- Local setup:
+  - npm install
+  - npm run dev
+- Vercel deployment steps
+
+============================================================
+EXPECTED FLOW
+============================================================
+User enters repo URL -> app indexes -> user asks codebase questions -> app answers using retrieved chunks.
+
+Now generate every file with complete code.
