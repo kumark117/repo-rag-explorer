@@ -36,3 +36,21 @@ textarea {
   border-radius: 10px;
   background: #141922;
 }
+
+.indexing-spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid #2f3f65;
+  border-top-color: #4f8cff;
+  animation: spinner-rotate 0.9s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

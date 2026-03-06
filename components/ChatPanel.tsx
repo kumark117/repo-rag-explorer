@@ -10,12 +10,22 @@ type QaPair = {
   isError?: boolean;
 };
 
-export default function ChatPanel() {
+type ChatPanelProps = {
+  canQuery: boolean;
+  isIndexing: boolean;
+  indexStatus?: string;
+};
+
+export default function ChatPanel({ canQuery, isIndexing, indexStatus }: ChatPanelProps) {
   const [qaPairs, setQaPairs] = useState<QaPair[]>([]);
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSend = async () => {
+    if (!canQuery || isIndexing) {
+      return;
+    }
+
     const nextQuestion = question.trim();
     if (!nextQuestion) {
       return;
@@ -90,13 +100,25 @@ export default function ChatPanel() {
 
       <div style={{ borderTop: "1px solid #2a2f3a", padding: 10, display: "grid", gap: 8 }}>
         <p style={{ margin: 0, color: "#9ba3b4", fontSize: 13 }}>
-          Ask a question about the indexed repository.
+          {canQuery && !isIndexing
+            ? "Ask a question about the indexed repository."
+            : "Index a repository first, then ask questions here."}
         </p>
+        {(!canQuery || isIndexing) && (
+          <p style={{ margin: 0, color: "#d7a16a", fontSize: 12 }}>
+            {indexStatus ?? "No repository indexed yet."}
+          </p>
+        )}
         <textarea
           rows={3}
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder="Type your question here..."
+          placeholder={
+            canQuery && !isIndexing
+              ? "Type your question here..."
+              : "Index a repository to enable chat..."
+          }
+          disabled={!canQuery || isIndexing || isLoading}
           style={{
             width: "100%",
             borderRadius: 8,
@@ -110,18 +132,18 @@ export default function ChatPanel() {
         <button
           type="button"
           onClick={handleSend}
-          disabled={isLoading}
+          disabled={!canQuery || isIndexing || isLoading}
           style={{
             width: "100%",
             padding: "8px 12px",
             borderRadius: 8,
             border: "1px solid #30415f",
-            background: isLoading ? "#1f2937" : "#1d4ed8",
+            background: !canQuery || isIndexing || isLoading ? "#1f2937" : "#1d4ed8",
             color: "#fff",
-            cursor: isLoading ? "not-allowed" : "pointer",
+            cursor: !canQuery || isIndexing || isLoading ? "not-allowed" : "pointer",
           }}
         >
-          {isLoading ? "Thinking..." : "Send"}
+          {isLoading ? "Thinking..." : "Send Prompt<Q>"}
         </button>
       </div>
 

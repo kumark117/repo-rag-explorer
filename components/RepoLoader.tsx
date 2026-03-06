@@ -4,11 +4,20 @@ import { useState } from "react";
 import type { IngestResponse, RepoFile } from "@/lib/types";
 
 type RepoLoaderProps = {
+  onIndexStart: () => void;
+  onIndexingChange: (isIndexing: boolean) => void;
+  onRepoUrlChange: (repoUrl: string) => void;
   onIngested: (files: RepoFile[], statusMessage: string, defaultPath?: string) => void;
   onStatusChange: (message: string) => void;
 };
 
-export default function RepoLoader({ onIngested, onStatusChange }: RepoLoaderProps) {
+export default function RepoLoader({
+  onIndexStart,
+  onIndexingChange,
+  onRepoUrlChange,
+  onIngested,
+  onStatusChange,
+}: RepoLoaderProps) {
   const [repoUrl, setRepoUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,6 +28,8 @@ export default function RepoLoader({ onIngested, onStatusChange }: RepoLoaderPro
     }
 
     setIsLoading(true);
+    onIndexingChange(true);
+    onIndexStart();
     onStatusChange("Indexing repository...");
 
     let timeoutId: number | undefined;
@@ -76,6 +87,7 @@ export default function RepoLoader({ onIngested, onStatusChange }: RepoLoaderPro
         window.clearTimeout(timeoutId);
       }
       setIsLoading(false);
+      onIndexingChange(false);
     }
   };
 
@@ -90,7 +102,11 @@ export default function RepoLoader({ onIngested, onStatusChange }: RepoLoaderPro
           type="url"
           placeholder="https://github.com/owner/repo"
           value={repoUrl}
-          onChange={(event) => setRepoUrl(event.target.value)}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setRepoUrl(nextValue);
+            onRepoUrlChange(nextValue);
+          }}
           style={{
             width: "100%",
             padding: "10px 12px",
@@ -103,14 +119,14 @@ export default function RepoLoader({ onIngested, onStatusChange }: RepoLoaderPro
         <button
           type="button"
           onClick={handleIngest}
-          disabled={isLoading}
+          disabled={isLoading || repoUrl.trim().length === 0}
           style={{
             padding: "10px 14px",
             borderRadius: 8,
             border: "1px solid #30415f",
-            background: isLoading ? "#1f2937" : "#1d4ed8",
+            background: isLoading || repoUrl.trim().length === 0 ? "#1f2937" : "#1d4ed8",
             color: "#fff",
-            cursor: isLoading ? "not-allowed" : "pointer",
+            cursor: isLoading || repoUrl.trim().length === 0 ? "not-allowed" : "pointer",
           }}
         >
           {isLoading ? "Indexing..." : "Index Repository"}

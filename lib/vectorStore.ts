@@ -63,4 +63,10 @@ class InMemoryVectorStore {
   }
 }
 
-export const vectorStore = new InMemoryVectorStore();
+const globalForVectorStore = globalThis as unknown as {
+  __repoRagVectorStore?: InMemoryVectorStore;
+};
+
+export const vectorStore =
+  globalForVectorStore.__repoRagVectorStore ??
+  (globalForVectorStore.__repoRagVectorStore = new InMemoryVectorStore());
