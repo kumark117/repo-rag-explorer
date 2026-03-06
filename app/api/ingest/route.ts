@@ -5,9 +5,11 @@ import { downloadAndReadRepository } from "@/lib/githubLoader";
 import { vectorStore } from "@/lib/vectorStore";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const MAX_UI_FILES = 200;
 const MAX_UI_FILE_CHARS = 12_000;
+const MAX_INGEST_CHUNKS = 1200;
 
 export async function POST(request: Request) {
   try {
@@ -30,11 +32,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const vectors = await embedTexts(chunks.map((chunk) => chunk.text));
+    const chunksForIndexing = chunks.slice(0, MAX_INGEST_CHUNKS);
+
+    const vectors = await embedTexts(chunksForIndexing.map((chunk) => chunk.text));
 
     vectorStore.clear();
 
-    chunks.forEach((chunk, index) => {
+    chunksForIndexing.forEach((chunk, index) => {
       vectorStore.addEmbedding(chunk, vectors[index]);
     });
 
@@ -52,15 +56,18 @@ export async function POST(request: Request) {
       },
       stats: {
         files: loadedRepo.files.length,
-        chunks: chunks.length,
+        chunks: chunksForIndexing.length,
       },
       files: uiFiles,
       ui: {
         returnedFiles: uiFiles.length,
         totalFiles: loadedRepo.files.length,
+        indexedChunks: chunksForIndexing.length,
+        totalChunks: chunks.length,
         truncated:
           loadedRepo.files.length > MAX_UI_FILES ||
-          loadedRepo.files.some((file) => file.content.length > MAX_UI_FILE_CHARS),
+          loadedRepo.files.some((file) => file.content.length > MAX_UI_FILE_CHARS) ||
+          chunks.length > MAX_INGEST_CHUNKS,
       },
     });
   } catch (error) {

@@ -72,7 +72,7 @@ export default function RepoLoader({
 
         if (error.message === "Failed to fetch") {
           onStatusChange(
-            "Cannot reach /api/ingest. Ensure the app server is running and reachable."
+            "Connection error while calling /api/ingest. If deployed on Vercel, this may be a function timeout—try a smaller repo and retry."
           );
           return;
         }
