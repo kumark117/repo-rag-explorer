@@ -6,6 +6,9 @@ import { vectorStore } from "@/lib/vectorStore";
 
 export const runtime = "nodejs";
 
+const MAX_UI_FILES = 200;
+const MAX_UI_FILE_CHARS = 12_000;
+
 export async function POST(request: Request) {
   try {
     const { repoUrl } = (await request.json()) as { repoUrl?: string };
@@ -35,6 +38,11 @@ export async function POST(request: Request) {
       vectorStore.addEmbedding(chunk, vectors[index]);
     });
 
+    const uiFiles = loadedRepo.files.slice(0, MAX_UI_FILES).map((file) => ({
+      ...file,
+      content: file.content.slice(0, MAX_UI_FILE_CHARS),
+    }));
+
     return NextResponse.json({
       success: true,
       repo: {
@@ -46,7 +54,14 @@ export async function POST(request: Request) {
         files: loadedRepo.files.length,
         chunks: chunks.length,
       },
-      files: loadedRepo.files,
+      files: uiFiles,
+      ui: {
+        returnedFiles: uiFiles.length,
+        totalFiles: loadedRepo.files.length,
+        truncated:
+          loadedRepo.files.length > MAX_UI_FILES ||
+          loadedRepo.files.some((file) => file.content.length > MAX_UI_FILE_CHARS),
+      },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ingestion failed.";

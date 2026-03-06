@@ -57,15 +57,52 @@ export default function ChatPanel() {
   };
 
   return (
-    <aside className="panel" style={{ overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto" }}>
+    <aside className="panel" style={{ overflow: "hidden", display: "grid", gridTemplateRows: "auto auto 1fr" }}>
       <div style={{ padding: "10px 12px", borderBottom: "1px solid #2a2f3a", fontWeight: 600 }}>
         AI Chat
+      </div>
+
+      <div style={{ borderTop: "1px solid #2a2f3a", padding: 10, display: "grid", gap: 8 }}>
+        <p style={{ margin: 0, color: "#9ba3b4", fontSize: 13 }}>
+          Ask a question about the indexed repository.
+        </p>
+        <textarea
+          rows={3}
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          placeholder="Type your question here..."
+          style={{
+            width: "100%",
+            borderRadius: 8,
+            border: "1px solid #2a2f3a",
+            background: "#0f131c",
+            color: "#e6e7ea",
+            padding: 10,
+            resize: "vertical",
+          }}
+        />
+        <button
+          type="button"
+          onClick={handleSend}
+          disabled={isLoading}
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #30415f",
+            background: isLoading ? "#1f2937" : "#1d4ed8",
+            color: "#fff",
+            cursor: isLoading ? "not-allowed" : "pointer",
+          }}
+        >
+          {isLoading ? "Thinking..." : "Send"}
+        </button>
       </div>
 
       <div style={{ overflow: "auto", padding: 12, display: "grid", gap: 8 }}>
         {messages.length === 0 ? (
           <p style={{ margin: 0, color: "#9ba3b4", fontSize: 13 }}>
-            Ask a question about the indexed repository.
+            No messages yet.
           </p>
         ) : (
           messages.map((message, index) => (
@@ -87,40 +124,6 @@ export default function ChatPanel() {
             </div>
           ))
         )}
-      </div>
-
-      <div style={{ borderTop: "1px solid #2a2f3a", padding: 10, display: "grid", gap: 8 }}>
-        <textarea
-          rows={3}
-          value={question}
-          onChange={(event) => setQuestion(event.target.value)}
-          placeholder="Ask about architecture, auth, API calls..."
-          style={{
-            width: "100%",
-            borderRadius: 8,
-            border: "1px solid #2a2f3a",
-            background: "#0f131c",
-            color: "#e6e7ea",
-            padding: 10,
-            resize: "vertical",
-          }}
-        />
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={isLoading}
-          style={{
-            justifySelf: "end",
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #30415f",
-            background: isLoading ? "#1f2937" : "#1d4ed8",
-            color: "#fff",
-            cursor: isLoading ? "not-allowed" : "pointer",
-          }}
-        >
-          {isLoading ? "Thinking..." : "Send"}
-        </button>
       </div>
     </aside>
   );

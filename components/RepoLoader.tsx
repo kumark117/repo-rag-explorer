@@ -21,14 +21,27 @@ export default function RepoLoader({ onIngested, onStatusChange }: RepoLoaderPro
     setIsLoading(true);
     onStatusChange("Indexing repository...");
 
+    let timeoutId: number | undefined;
+
     try {
+      const controller = new AbortController();
+      timeoutId = window.setTimeout(() => controller.abort(), 240_000);
+
       const response = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repoUrl: repoUrl.trim() }),
+        signal: controller.signal,
       });
 
-      const data = (await response.json()) as IngestResponse | { error: string };
+      const raw = await response.text();
+      let data: IngestResponse | { error: string };
+
+      try {
+        data = JSON.parse(raw) as IngestResponse | { error: string };
+      } catch {
+        throw new Error(raw || "Server returned an invalid response.");
+      }
 
       if (!response.ok) {
         throw new Error("error" in data ? data.error : "Failed to ingest repository.");
@@ -38,8 +51,30 @@ export default function RepoLoader({ onIngested, onStatusChange }: RepoLoaderPro
       const status = `Indexed ${successData.stats.files} files into ${successData.stats.chunks} chunks from ${successData.repo.owner}/${successData.repo.name} (${successData.repo.branch}).`;
       onIngested(successData.files, status, successData.files[0]?.path);
     } catch (error) {
-      onStatusChange(error instanceof Error ? error.message : "Ingestion failed.");
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          onStatusChange(
+            "Indexing timed out. Try a smaller repository or retry with fewer files."
+          );
+          return;
+        }
+
+        if (error.message === "Failed to fetch") {
+          onStatusChange(
+            "Cannot reach /api/ingest. Ensure the app server is running and reachable."
+          );
+          return;
+        }
+
+        onStatusChange(error.message);
+        return;
+      }
+
+      onStatusChange("Ingestion failed.");
     } finally {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
       setIsLoading(false);
     }
   };
