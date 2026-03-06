@@ -32,7 +32,9 @@ export default function ExplorerPage() {
 
   return (
     <main className="container" style={{ display: "grid", gap: 14 }}>
-      <h1 style={{ margin: 0 }}>RepoRAG Explorer</h1>
+      <h1 style={{ margin: 0 }}>Repo RAG AI Explorer</h1>
+        <div>AI Codebase Explorer using RAG (Retrieval Augmented Generation)
+        <br/>Nextjs + Typescript + RAG AI --- openAI project</div>
       <RepoLoader onIngested={handleIngested} onStatusChange={setIndexStatus} />
       <div
         className="panel"

@@ -32,13 +32,19 @@ export async function answerQuestionWithRag(question: string): Promise<QueryResp
     )
     .join("\n\n");
 
-  const prompt = `You are a senior software engineer analyzing a codebase.
+const prompt = `
+You are a senior software engineer analyzing a codebase.
 
-Question: ${question}
+Use the provided code snippets to answer the user's question.
 
-Relevant Code: ${chunkText}
+Question:
+${question}
 
-Explain clearly and mention file names when possible.`;
+Relevant code snippets:
+${chunkText}
+
+Explain clearly and reference file names when possible.
+`;
 
   const client = getClient();
   const completion = await client.chat.completions.create({

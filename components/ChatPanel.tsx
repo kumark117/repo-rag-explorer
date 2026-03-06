@@ -3,13 +3,15 @@
 import { useState } from "react";
 import type { QueryResponse } from "@/lib/types";
 
-type ChatMessage = {
-  role: "user" | "assistant";
-  text: string;
+type QaPair = {
+  id: string;
+  question: string;
+  answer: string | null;
+  isError?: boolean;
 };
 
 export default function ChatPanel() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [qaPairs, setQaPairs] = useState<QaPair[]>([]);
   const [question, setQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,7 +21,16 @@ export default function ChatPanel() {
       return;
     }
 
-    setMessages((prev) => [...prev, { role: "user", text: nextQuestion }]);
+    const pairId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    setQaPairs((prev) => [
+      {
+        id: pairId,
+        question: nextQuestion,
+        answer: null,
+      },
+      ...prev,
+    ]);
     setQuestion("");
     setIsLoading(true);
 
@@ -42,15 +53,30 @@ export default function ChatPanel() {
         ? `${answerData.answer}\n\nSources: ${sourceList}`
         : answerData.answer;
 
-      setMessages((prev) => [...prev, { role: "assistant", text: responseText }]);
+      setQaPairs((prev) =>
+        prev.map((pair) =>
+          pair.id === pairId
+            ? {
+                ...pair,
+                answer: responseText,
+                isError: false,
+              }
+            : pair
+        )
+      );
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          text: error instanceof Error ? error.message : "Failed to fetch answer.",
-        },
-      ]);
+      const errorText = error instanceof Error ? error.message : "Failed to fetch answer.";
+      setQaPairs((prev) =>
+        prev.map((pair) =>
+          pair.id === pairId
+            ? {
+                ...pair,
+                answer: errorText,
+                isError: true,
+              }
+            : pair
+        )
+      );
     } finally {
       setIsLoading(false);
     }
@@ -100,27 +126,51 @@ export default function ChatPanel() {
       </div>
 
       <div style={{ overflow: "auto", padding: 12, display: "grid", gap: 8 }}>
-        {messages.length === 0 ? (
+        {qaPairs.length === 0 ? (
           <p style={{ margin: 0, color: "#9ba3b4", fontSize: 13 }}>
             No messages yet.
           </p>
         ) : (
-          messages.map((message, index) => (
+          qaPairs.map((pair) => (
             <div
-              key={`${message.role}-${index}`}
+              key={pair.id}
               style={{
                 border: "1px solid #2a2f3a",
                 borderRadius: 8,
-                background: message.role === "user" ? "#10213f" : "#141a26",
+                background: "#141a26",
                 padding: "8px 10px",
                 fontSize: 13,
-                whiteSpace: "pre-wrap",
+                display: "grid",
+                gap: 8,
               }}
             >
-              <strong style={{ display: "block", marginBottom: 4 }}>
-                {message.role === "user" ? "You" : "AI"}
-              </strong>
-              {message.text}
+              <div
+                style={{
+                  border: "1px solid #2a2f3a",
+                  borderRadius: 8,
+                  background: "#10213f",
+                  padding: "8px 10px",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                <strong style={{ display: "block", marginBottom: 4 }}>You</strong>
+                {pair.question}
+              </div>
+
+              <div
+                style={{
+                  border: "1px solid #2a2f3a",
+                  borderRadius: 8,
+                  background: pair.isError ? "#3a1616" : "#1a2233",
+                  padding: "8px 10px",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                <strong style={{ display: "block", marginBottom: 4 }}>
+                  {pair.answer ? "AI" : "AI (thinking...)"}
+                </strong>
+                {pair.answer ?? "Generating response..."}
+              </div>
             </div>
           ))
         )}
