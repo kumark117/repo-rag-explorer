@@ -13,7 +13,11 @@ const MAX_INGEST_FILES = 180;
 const MAX_INGEST_CHUNKS = 450;
 
 export async function POST(request: Request) {
+  let phase = "parse_request";
+  const startedAt = Date.now();
+
   try {
+    phase = "read_body";
     const { repoUrl } = (await request.json()) as { repoUrl?: string };
 
     if (!repoUrl || typeof repoUrl !== "string") {
@@ -23,7 +27,10 @@ export async function POST(request: Request) {
       );
     }
 
+    phase = "download_repo";
     const loadedRepo = await downloadAndReadRepository(repoUrl);
+
+    phase = "chunk_files";
     const filesForIndexing = loadedRepo.files.slice(0, MAX_INGEST_FILES);
     const chunks = chunkFiles(filesForIndexing);
 
@@ -34,6 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
+    phase = "embed_chunks";
     const chunksForIndexing = chunks.slice(0, MAX_INGEST_CHUNKS);
 
     const vectors = await embedTexts(chunksForIndexing.map((chunk) => chunk.text));
@@ -41,13 +49,26 @@ export async function POST(request: Request) {
       throw new Error("Embedding generation returned an unexpected vector count.");
     }
 
+    phase = "vector_store_clear";
     await vectorStore.clear();
+
+    phase = "vector_store_upsert";
     await vectorStore.addEmbeddings(chunksForIndexing, vectors);
 
+    phase = "prepare_ui_payload";
     const uiFiles = loadedRepo.files.slice(0, MAX_UI_FILES).map((file) => ({
       ...file,
       content: file.content.slice(0, MAX_UI_FILE_CHARS),
     }));
+
+    const durationMs = Date.now() - startedAt;
+    console.info("[ingest] completed", {
+      phase: "done",
+      durationMs,
+      filesIndexed: filesForIndexing.length,
+      chunksIndexed: chunksForIndexing.length,
+      repo: `${loadedRepo.owner}/${loadedRepo.name}`,
+    });
 
     return NextResponse.json({
       success: true,
@@ -75,6 +96,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    const durationMs = Date.now() - startedAt;
     const details =
       error instanceof Error
         ? {
@@ -88,12 +110,18 @@ export async function POST(request: Request) {
             stack: undefined,
           };
 
-    console.error("[ingest] failed", details);
+    console.error("[ingest] failed", {
+      phase,
+      durationMs,
+      ...details,
+    });
 
     return NextResponse.json(
       {
         error: details.message || "Ingestion failed.",
         details: {
+          phase,
+          durationMs,
           name: details.name,
           hint:
             "Check Vercel function logs for '[ingest] failed' and stack trace. Common causes: invalid OpenAI/Pinecone configuration, index dimension mismatch, or external API timeout.",
