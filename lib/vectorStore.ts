@@ -68,7 +68,8 @@ class InMemoryVectorStore {
 function getPineconeConfig() {
   const apiKey = process.env.PINECONE_API_KEY;
   const indexName = process.env.PINECONE_INDEX_NAME;
-  const namespace = process.env.PINECONE_NAMESPACE ?? "repo-rag-default";
+  const rawNamespace = process.env.PINECONE_NAMESPACE ?? "repo-rag-default";
+  const namespace = rawNamespace.trim() === "_default_" ? "repo-rag-default" : rawNamespace;
 
   if (!apiKey || !indexName) {
     return null;
@@ -109,7 +110,11 @@ class HybridVectorStore {
   async clear() {
     const pinecone = this.getPineconeIndex();
     if (pinecone) {
-      await pinecone.index.namespace(pinecone.namespace).deleteAll();
+      try {
+        await pinecone.index.namespace(pinecone.namespace).deleteAll();
+      } catch {
+        return;
+      }
       return;
     }
 
@@ -183,10 +188,32 @@ class HybridVectorStore {
   }
 }
 
-const globalForVectorStore = globalThis as unknown as {
-  __repoRagVectorStore?: HybridVectorStore;
+type VectorStoreApi = {
+  clear: () => Promise<void> | void;
+  size: () => Promise<number> | number;
+  searchSimilar: (queryEmbedding: number[], topK?: number) => Promise<SourceChunk[]> | SourceChunk[];
+  addEmbeddings?: (chunks: CodeChunk[], embeddings: number[][]) => Promise<void> | void;
 };
 
-export const vectorStore =
-  globalForVectorStore.__repoRagVectorStore ??
-  (globalForVectorStore.__repoRagVectorStore = new HybridVectorStore());
+function isCompatibleVectorStore(store: unknown): store is VectorStoreApi {
+  if (!store || typeof store !== "object") {
+    return false;
+  }
+
+  const candidate = store as Record<string, unknown>;
+  return (
+    typeof candidate.clear === "function" &&
+    typeof candidate.size === "function" &&
+    typeof candidate.searchSimilar === "function" &&
+    typeof candidate.addEmbeddings === "function"
+  );
+}
+
+const globalForVectorStore = globalThis as unknown as {
+  __repoRagVectorStore?: unknown;
+};
+
+const existingStore = globalForVectorStore.__repoRagVectorStore;
+export const vectorStore = isCompatibleVectorStore(existingStore)
+  ? (existingStore as HybridVectorStore)
+  : (globalForVectorStore.__repoRagVectorStore = new HybridVectorStore());
