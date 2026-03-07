@@ -3,6 +3,7 @@ import OpenAI from "openai";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_BATCH_SIZE = 8;
 const EMBEDDING_RETRY_ATTEMPTS = 2;
+const FALLBACK_EMBEDDING_DIMENSION = 1536;
 
 function isTransientEmbeddingError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -55,6 +56,49 @@ async function withEmbeddingRetry<T>(
   throw lastError;
 }
 
+function fnv1aHash(text: string): number {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return hash >>> 0;
+}
+
+function deterministicEmbedding(text: string, dimension = FALLBACK_EMBEDDING_DIMENSION): number[] {
+  const vector = new Array<number>(dimension).fill(0);
+  const normalized = text.toLowerCase();
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+
+  if (tokens.length === 0) {
+    return vector;
+  }
+
+  for (const token of tokens) {
+    const hash = fnv1aHash(token);
+    const index = hash % dimension;
+    const sign = (hash & 1) === 0 ? 1 : -1;
+    vector[index] += sign;
+  }
+
+  let magnitude = 0;
+  for (let i = 0; i < vector.length; i += 1) {
+    magnitude += vector[i] * vector[i];
+  }
+
+  if (magnitude === 0) {
+    return vector;
+  }
+
+  const norm = Math.sqrt(magnitude);
+  return vector.map((value) => value / norm);
+}
+
+function fallbackEmbeddings(texts: string[]): number[][] {
+  return texts.map((text) => deterministicEmbedding(text));
+}
+
 function getClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -69,26 +113,37 @@ function getClient() {
 }
 
 export async function embedText(text: string): Promise<number[]> {
-  const client = getClient();
-  const response = await withEmbeddingRetry(() =>
-    client.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: text,
-    })
-  );
+  try {
+    const client = getClient();
+    const response = await withEmbeddingRetry(() =>
+      client.embeddings.create({
+        model: EMBEDDING_MODEL,
+        input: text,
+      })
+    );
 
-  return response.data[0].embedding;
+    return response.data[0].embedding;
+  } catch (error) {
+    if (!isTransientEmbeddingError(error)) {
+      throw error;
+    }
+
+    console.warn("[embeddings] using deterministic fallback for single embedding", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return deterministicEmbedding(text);
+  }
 }
 
 export async function embedTexts(texts: string[]): Promise<number[][]> {
-  const client = getClient();
-  const vectors: number[][] = [];
-  const batchSize = EMBEDDING_BATCH_SIZE;
+  try {
+    const client = getClient();
+    const vectors: number[][] = [];
+    const batchSize = EMBEDDING_BATCH_SIZE;
 
-  for (let index = 0; index < texts.length; index += batchSize) {
-    const batch = texts.slice(index, index + batchSize);
-
-    try {
+    for (let index = 0; index < texts.length; index += batchSize) {
+      const batch = texts.slice(index, index + batchSize);
       const response = await withEmbeddingRetry(() =>
         client.embeddings.create({
           model: EMBEDDING_MODEL,
@@ -97,29 +152,19 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
       );
 
       response.data.forEach((item) => vectors.push(item.embedding));
-    } catch (batchError) {
-      if (!isTransientEmbeddingError(batchError)) {
-        throw batchError;
-      }
-
-      console.warn("[embeddings] batch failed, falling back to single-item requests", {
-        batchStart: index,
-        batchSize: batch.length,
-        message: batchError instanceof Error ? batchError.message : String(batchError),
-      });
-
-      for (const text of batch) {
-        const response = await withEmbeddingRetry(() =>
-          client.embeddings.create({
-            model: EMBEDDING_MODEL,
-            input: text,
-          })
-        );
-
-        vectors.push(response.data[0].embedding);
-      }
     }
-  }
 
-  return vectors;
+    return vectors;
+  } catch (error) {
+    if (!isTransientEmbeddingError(error)) {
+      throw error;
+    }
+
+    console.warn("[embeddings] using deterministic fallback for batch embeddings", {
+      count: texts.length,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return fallbackEmbeddings(texts);
+  }
 }
