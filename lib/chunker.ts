@@ -1,7 +1,7 @@
 import type { CodeChunk, RepoFile } from "@/lib/types";
 
-const CHUNK_SIZE = 700;
-const CHUNK_OVERLAP = 120;
+const CHUNK_SIZE = 1000;
+const CHUNK_OVERLAP = 100;
 
 function splitTextIntoChunks(text: string): string[] {
   const normalized = text.replace(/\r\n/g, "\n");

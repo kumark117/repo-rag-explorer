@@ -9,8 +9,23 @@ export const maxDuration = 300;
 
 const MAX_UI_FILES = 200;
 const MAX_UI_FILE_CHARS = 12_000;
-const MAX_INGEST_FILES = 180;
-const MAX_INGEST_CHUNKS = 450;
+
+function parseEnvInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+const MAX_INGEST_FILES = parseEnvInt("MAX_INGEST_FILES", 60);
+const MAX_INGEST_CHUNKS = parseEnvInt("MAX_INGEST_CHUNKS", 120);
 
 function isTransientConnectionError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -91,11 +106,7 @@ export async function POST(request: Request) {
     phase = "embed_chunks";
     const chunksForIndexing = chunks.slice(0, MAX_INGEST_CHUNKS);
 
-    const vectors = await withRetry(
-      () => embedTexts(chunksForIndexing.map((chunk) => chunk.text)),
-      3,
-      "embed_chunks"
-    );
+    const vectors = await embedTexts(chunksForIndexing.map((chunk) => chunk.text));
     if (vectors.length !== chunksForIndexing.length) {
       throw new Error("Embedding generation returned an unexpected vector count.");
     }

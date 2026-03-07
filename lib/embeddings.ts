@@ -2,7 +2,7 @@ import OpenAI from "openai";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_BATCH_SIZE = 8;
-const EMBEDDING_RETRY_ATTEMPTS = 6;
+const EMBEDDING_RETRY_ATTEMPTS = 2;
 
 function isTransientEmbeddingError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -63,8 +63,8 @@ function getClient() {
 
   return new OpenAI({
     apiKey,
-    maxRetries: 5,
-    timeout: 120_000,
+    maxRetries: 2,
+    timeout: 30_000,
   });
 }
 

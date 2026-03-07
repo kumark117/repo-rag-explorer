@@ -37,33 +37,57 @@ export default function RepoLoader({
     onIndexStart();
     onStatusChange("Indexing repository...");
 
-    let timeoutId: number | undefined;
-
     try {
-      const controller = new AbortController();
-      timeoutId = window.setTimeout(() => controller.abort(), 240_000);
+      const MAX_ATTEMPTS = 2;
+      let successData: IngestResponse | null = null;
 
-      const response = await fetch("/api/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl: repoUrl.trim() }),
-        signal: controller.signal,
-      });
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 180_000);
 
-      const raw = await response.text();
-      let data: IngestResponse | { error: string };
+        try {
+          const response = await fetch("/api/ingest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ repoUrl: repoUrl.trim() }),
+            signal: controller.signal,
+          });
 
-      try {
-        data = JSON.parse(raw) as IngestResponse | { error: string };
-      } catch {
-        throw new Error(raw || "Server returned an invalid response.");
+          const raw = await response.text();
+          let data: IngestResponse | { error: string };
+
+          try {
+            data = JSON.parse(raw) as IngestResponse | { error: string };
+          } catch {
+            throw new Error(raw || "Server returned an invalid response.");
+          }
+
+          if (!response.ok) {
+            throw new Error("error" in data ? data.error : "Failed to ingest repository.");
+          }
+
+          successData = data as IngestResponse;
+          break;
+        } catch (error) {
+          const canRetry =
+            attempt < MAX_ATTEMPTS && error instanceof Error && error.message === "Failed to fetch";
+
+          if (canRetry) {
+            onStatusChange("Temporary network issue during indexing, retrying once...");
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            continue;
+          }
+
+          throw error;
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
       }
 
-      if (!response.ok) {
-        throw new Error("error" in data ? data.error : "Failed to ingest repository.");
+      if (!successData) {
+        throw new Error("Failed to ingest repository.");
       }
 
-      const successData = data as IngestResponse;
       const baseStatus = `Indexed ${successData.stats.files} files into ${successData.stats.chunks} chunks from ${successData.repo.owner}/${successData.repo.name} (${successData.repo.branch}).`;
       const truncationStatus = successData.ui?.truncated
         ? ` Showing ${successData.ui.returnedFiles}/${successData.ui.totalFiles} files in UI, indexed ${successData.ui.indexedFiles}/${successData.ui.totalFiles} files (${successData.ui.indexedChunks}/${successData.ui.totalChunks} chunks).`
@@ -74,14 +98,14 @@ export default function RepoLoader({
       if (error instanceof Error) {
         if (error.name === "AbortError") {
           onStatusChange(
-            "Indexing timed out. Try a smaller repository or retry with fewer files."
+            "Indexing timed out. Please retry; if needed, use a smaller repository."
           );
           return;
         }
 
         if (error.message === "Failed to fetch") {
           onStatusChange(
-            "Connection error while calling /api/ingest. If deployed on Vercel, this may be a function timeout—try a smaller repo and retry."
+            "Connection error while calling /api/ingest. This is usually a transient network/API issue; retry in a few seconds."
           );
           return;
         }
@@ -92,9 +116,6 @@ export default function RepoLoader({
 
       onStatusChange("Ingestion failed.");
     } finally {
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
       setIsLoading(false);
       onIndexingChange(false);
     }
