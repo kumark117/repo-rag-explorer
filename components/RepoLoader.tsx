@@ -7,7 +7,12 @@ type RepoLoaderProps = {
   onIndexStart: () => void;
   onIndexingChange: (isIndexing: boolean) => void;
   onRepoUrlChange: (repoUrl: string) => void;
-  onIngested: (files: RepoFile[], statusMessage: string, defaultPath?: string) => void;
+  onIngested: (
+    files: RepoFile[],
+    statusMessage: string,
+    defaultPath?: string,
+    ui?: IngestResponse["ui"]
+  ) => void;
   onStatusChange: (message: string) => void;
 };
 
@@ -59,8 +64,12 @@ export default function RepoLoader({
       }
 
       const successData = data as IngestResponse;
-      const status = `Indexed ${successData.stats.files} files into ${successData.stats.chunks} chunks from ${successData.repo.owner}/${successData.repo.name} (${successData.repo.branch}).`;
-      onIngested(successData.files, status, successData.files[0]?.path);
+      const baseStatus = `Indexed ${successData.stats.files} files into ${successData.stats.chunks} chunks from ${successData.repo.owner}/${successData.repo.name} (${successData.repo.branch}).`;
+      const truncationStatus = successData.ui?.truncated
+        ? ` Showing ${successData.ui.returnedFiles}/${successData.ui.totalFiles} files in UI, indexed ${successData.ui.indexedFiles}/${successData.ui.totalFiles} files (${successData.ui.indexedChunks}/${successData.ui.totalChunks} chunks).`
+        : "";
+      const status = `${baseStatus}${truncationStatus}`;
+      onIngested(successData.files, status, successData.files[0]?.path, successData.ui);
     } catch (error) {
       if (error instanceof Error) {
         if (error.name === "AbortError") {

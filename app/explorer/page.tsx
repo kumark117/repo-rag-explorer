@@ -6,7 +6,7 @@ import CodeViewer from "@/components/CodeViewer";
 import ExplorerLayout from "@/components/ExplorerLayout";
 import FileTree from "@/components/FileTree";
 import RepoLoader from "@/components/RepoLoader";
-import type { RepoFile } from "@/lib/types";
+import type { IngestResponse, RepoFile } from "@/lib/types";
 
 export default function ExplorerPage() {
   const [files, setFiles] = useState<RepoFile[]>([]);
@@ -14,6 +14,7 @@ export default function ExplorerPage() {
   const [repoUrlInput, setRepoUrlInput] = useState("");
   const [chatSessionId, setChatSessionId] = useState(0);
   const [isIndexing, setIsIndexing] = useState(false);
+  const [ingestUiSummary, setIngestUiSummary] = useState<IngestResponse["ui"]>();
   const [indexStatus, setIndexStatus] = useState<string>(
     "No repository indexed yet."
   );
@@ -28,6 +29,7 @@ export default function ExplorerPage() {
   const handleIndexStart = () => {
     setFiles([]);
     setSelectedPath("");
+    setIngestUiSummary(undefined);
     setIndexStatus("Indexing repository...");
     setChatSessionId((prev) => prev + 1);
   };
@@ -35,10 +37,12 @@ export default function ExplorerPage() {
   const handleIngested = (
     nextFiles: RepoFile[],
     statusMessage: string,
-    defaultPath?: string
+    defaultPath?: string,
+    ui?: IngestResponse["ui"]
   ) => {
     setFiles(nextFiles);
     setSelectedPath(defaultPath ?? nextFiles[0]?.path ?? "");
+    setIngestUiSummary(ui);
     setIndexStatus(statusMessage);
     setChatSessionId((prev) => prev + 1);
   };
@@ -60,6 +64,13 @@ export default function ExplorerPage() {
         style={{ padding: 10, fontSize: 13, color: "#a7adbb", minHeight: 40 }}
       >
         {indexStatus}
+        {ingestUiSummary && (
+          <div style={{ marginTop: 6, fontSize: 12, color: "#8f96a6" }}>
+            Indexed: {ingestUiSummary.indexedFiles}/{ingestUiSummary.totalFiles} files, {" "}
+            {ingestUiSummary.indexedChunks}/{ingestUiSummary.totalChunks} chunks.
+            {ingestUiSummary.truncated ? " (truncated for performance)" : ""}
+          </div>
+        )}
       </div>
       <div style={{ position: "relative" }}>
         <ExplorerLayout

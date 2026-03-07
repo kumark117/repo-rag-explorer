@@ -31,6 +31,14 @@ export type IngestResponse = {
     chunks: number;
   };
   files: RepoFile[];
+  ui?: {
+    returnedFiles: number;
+    totalFiles: number;
+    indexedFiles: number;
+    indexedChunks: number;
+    totalChunks: number;
+    truncated: boolean;
+  };
 };
 
 export type QueryResponse = {

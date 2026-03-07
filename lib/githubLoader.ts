@@ -15,6 +15,13 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".yml",
   ".yaml",
 ]);
+const SUPPORTED_BARE_FILENAMES = new Set([
+  "readme",
+  "license",
+  "changelog",
+  "contributing",
+  "code_of_conduct",
+]);
 const IGNORED_DIRS = new Set(["node_modules", "dist", "build", ".git"]);
 const MAX_FILE_BYTES = 220_000;
 
@@ -82,7 +89,10 @@ async function scanFiles(rootDir: string, currentDir = rootDir): Promise<RepoFil
     }
 
     const extension = extname(entry.name);
-    if (!SUPPORTED_EXTENSIONS.has(extension)) {
+    const bareName = entry.name.toLowerCase();
+    const isSupportedBareFile = extension.length === 0 && SUPPORTED_BARE_FILENAMES.has(bareName);
+
+    if (!SUPPORTED_EXTENSIONS.has(extension) && !isSupportedBareFile) {
       continue;
     }
 

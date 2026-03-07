@@ -9,7 +9,8 @@ export const maxDuration = 300;
 
 const MAX_UI_FILES = 200;
 const MAX_UI_FILE_CHARS = 12_000;
-const MAX_INGEST_CHUNKS = 1200;
+const MAX_INGEST_FILES = 180;
+const MAX_INGEST_CHUNKS = 450;
 
 export async function POST(request: Request) {
   try {
@@ -23,7 +24,8 @@ export async function POST(request: Request) {
     }
 
     const loadedRepo = await downloadAndReadRepository(repoUrl);
-    const chunks = chunkFiles(loadedRepo.files);
+    const filesForIndexing = loadedRepo.files.slice(0, MAX_INGEST_FILES);
+    const chunks = chunkFiles(filesForIndexing);
 
     if (chunks.length === 0) {
       return NextResponse.json(
@@ -55,18 +57,20 @@ export async function POST(request: Request) {
         branch: loadedRepo.branch,
       },
       stats: {
-        files: loadedRepo.files.length,
+        files: filesForIndexing.length,
         chunks: chunksForIndexing.length,
       },
       files: uiFiles,
       ui: {
         returnedFiles: uiFiles.length,
         totalFiles: loadedRepo.files.length,
+        indexedFiles: filesForIndexing.length,
         indexedChunks: chunksForIndexing.length,
         totalChunks: chunks.length,
         truncated:
           loadedRepo.files.length > MAX_UI_FILES ||
           loadedRepo.files.some((file) => file.content.length > MAX_UI_FILE_CHARS) ||
+          loadedRepo.files.length > MAX_INGEST_FILES ||
           chunks.length > MAX_INGEST_CHUNKS,
       },
     });
