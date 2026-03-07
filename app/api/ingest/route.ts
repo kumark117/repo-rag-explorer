@@ -37,6 +37,9 @@ export async function POST(request: Request) {
     const chunksForIndexing = chunks.slice(0, MAX_INGEST_CHUNKS);
 
     const vectors = await embedTexts(chunksForIndexing.map((chunk) => chunk.text));
+    if (vectors.length !== chunksForIndexing.length) {
+      throw new Error("Embedding generation returned an unexpected vector count.");
+    }
 
     await vectorStore.clear();
     await vectorStore.addEmbeddings(chunksForIndexing, vectors);

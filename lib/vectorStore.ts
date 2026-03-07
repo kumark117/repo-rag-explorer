@@ -112,8 +112,13 @@ class HybridVectorStore {
     if (pinecone) {
       try {
         await pinecone.index.namespace(pinecone.namespace).deleteAll();
-      } catch {
-        return;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("404")) {
+          return;
+        }
+
+        throw error;
       }
       return;
     }
