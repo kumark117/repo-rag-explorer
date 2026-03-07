@@ -75,7 +75,31 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Ingestion failed.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const details =
+      error instanceof Error
+        ? {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+          }
+        : {
+            name: "UnknownError",
+            message: String(error),
+            stack: undefined,
+          };
+
+    console.error("[ingest] failed", details);
+
+    return NextResponse.json(
+      {
+        error: details.message || "Ingestion failed.",
+        details: {
+          name: details.name,
+          hint:
+            "Check Vercel function logs for '[ingest] failed' and stack trace. Common causes: invalid OpenAI/Pinecone configuration, index dimension mismatch, or external API timeout.",
+        },
+      },
+      { status: 500 }
+    );
   }
 }
