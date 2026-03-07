@@ -4,7 +4,17 @@ import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 import type { RepoFile } from "@/lib/types";
 
-const SUPPORTED_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".py", ".md"]);
+const SUPPORTED_EXTENSIONS = new Set([
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".py",
+  ".md",
+  ".json",
+  ".yml",
+  ".yaml",
+]);
 const IGNORED_DIRS = new Set(["node_modules", "dist", "build", ".git"]);
 const MAX_FILE_BYTES = 220_000;
 

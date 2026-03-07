@@ -102,6 +102,14 @@ export default function RepoLoader({
           type="url"
           placeholder="https://github.com/owner/repo"
           value={repoUrl}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              if (!isLoading && repoUrl.trim().length > 0) {
+                void handleIngest();
+              }
+            }
+          }}
           onChange={(event) => {
             const nextValue = event.target.value;
             setRepoUrl(nextValue);
