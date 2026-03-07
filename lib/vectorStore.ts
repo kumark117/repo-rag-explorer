@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { Pinecone } from "@pinecone-database/pinecone";
 import type { CodeChunk, SourceChunk } from "@/lib/types";
 
 type VectorItem = {
@@ -63,10 +65,128 @@ class InMemoryVectorStore {
   }
 }
 
+function getPineconeConfig() {
+  const apiKey = process.env.PINECONE_API_KEY;
+  const indexName = process.env.PINECONE_INDEX_NAME;
+  const namespace = process.env.PINECONE_NAMESPACE ?? "repo-rag-default";
+
+  if (!apiKey || !indexName) {
+    return null;
+  }
+
+  return {
+    apiKey,
+    indexName,
+    namespace,
+  };
+}
+
+class HybridVectorStore {
+  private readonly memoryStore = new InMemoryVectorStore();
+
+  private pineconeClient: Pinecone | null = null;
+
+  private getPineconeIndex() {
+    const config = getPineconeConfig();
+    if (!config) {
+      return null;
+    }
+
+    if (!this.pineconeClient) {
+      this.pineconeClient = new Pinecone({ apiKey: config.apiKey });
+    }
+
+    return {
+      index: this.pineconeClient.index(config.indexName),
+      namespace: config.namespace,
+    };
+  }
+
+  private toVectorId(chunkId: string): string {
+    return createHash("sha1").update(chunkId).digest("hex");
+  }
+
+  async clear() {
+    const pinecone = this.getPineconeIndex();
+    if (pinecone) {
+      await pinecone.index.namespace(pinecone.namespace).deleteAll();
+      return;
+    }
+
+    this.memoryStore.clear();
+  }
+
+  async addEmbeddings(chunks: CodeChunk[], embeddings: number[][]) {
+    const pinecone = this.getPineconeIndex();
+    if (pinecone) {
+      const namespaceIndex = pinecone.index.namespace(pinecone.namespace);
+      const batchSize = 100;
+
+      for (let index = 0; index < chunks.length; index += batchSize) {
+        const chunkBatch = chunks.slice(index, index + batchSize);
+        const vectorBatch = embeddings.slice(index, index + batchSize);
+
+        await namespaceIndex.upsert(
+          chunkBatch.map((chunk, batchIndex) => ({
+            id: this.toVectorId(chunk.id),
+            values: vectorBatch[batchIndex],
+            metadata: {
+              chunkId: chunk.id,
+              fileName: chunk.fileName,
+              filePath: chunk.filePath,
+              text: chunk.text,
+            },
+          }))
+        );
+      }
+
+      return;
+    }
+
+    chunks.forEach((chunk, index) => {
+      this.memoryStore.addEmbedding(chunk, embeddings[index]);
+    });
+  }
+
+  async searchSimilar(queryEmbedding: number[], topK = 5): Promise<SourceChunk[]> {
+    const pinecone = this.getPineconeIndex();
+    if (pinecone) {
+      const queryResult = await pinecone.index.namespace(pinecone.namespace).query({
+        vector: queryEmbedding,
+        topK,
+        includeMetadata: true,
+      });
+
+      return (queryResult.matches ?? [])
+        .filter((match) => match.metadata)
+        .map((match) => ({
+          id: String(match.metadata?.chunkId ?? match.id),
+          fileName: String(match.metadata?.fileName ?? "unknown"),
+          filePath: String(match.metadata?.filePath ?? "unknown"),
+          text: String(match.metadata?.text ?? ""),
+          score: match.score ?? 0,
+        }));
+    }
+
+    return this.memoryStore.searchSimilar(queryEmbedding, topK);
+  }
+
+  async size() {
+    const pinecone = this.getPineconeIndex();
+    if (pinecone) {
+      const stats = await pinecone.index.describeIndexStats();
+      const namespaceStats = stats.namespaces?.[pinecone.namespace];
+      return namespaceStats?.recordCount ?? 0;
+    }
+
+    return this.memoryStore.size();
+  }
+}
+
 const globalForVectorStore = globalThis as unknown as {
-  __repoRagVectorStore?: InMemoryVectorStore;
+  __repoRagVectorStore?: HybridVectorStore;
 };
 
 export const vectorStore =
   globalForVectorStore.__repoRagVectorStore ??
-  (globalForVectorStore.__repoRagVectorStore = new InMemoryVectorStore());
+  (globalForVectorStore.__repoRagVectorStore = new HybridVectorStore());

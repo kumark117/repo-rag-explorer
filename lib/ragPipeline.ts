@@ -16,7 +16,7 @@ function getClient() {
 
 export async function answerQuestionWithRag(question: string): Promise<QueryResponse> {
   const queryEmbedding = await embedText(question);
-  const sources = vectorStore.searchSimilar(queryEmbedding, 5);
+  const sources = await vectorStore.searchSimilar(queryEmbedding, 5);
 
   if (sources.length === 0) {
     return {

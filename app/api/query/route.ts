@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (vectorStore.size() === 0) {
+    if ((await vectorStore.size()) === 0) {
       return NextResponse.json(
         { error: "No repository indexed. Run ingestion first." },
         { status: 400 }

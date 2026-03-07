@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@pinecone-database/pinecone": "^3.0.2",
     "adm-zip": "^0.5.16",
     "next": "^15.2.0",
     "openai": "^4.80.0",

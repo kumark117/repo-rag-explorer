@@ -2,7 +2,7 @@
 
 AI Codebase Explorer using RAG (Retrieval Augmented Generation).
 
-RepoRAG Explorer ingests a GitHub repository, chunks source files, generates embeddings, stores vectors in memory, and answers architecture/code questions using retrieval-grounded responses.
+RepoRAG Explorer ingests a GitHub repository, chunks source files, generates embeddings, stores vectors in Pinecone, and answers architecture/code questions using retrieval-grounded responses.
 
 ## Project Overview
 
@@ -10,7 +10,7 @@ RepoRAG Explorer ingests a GitHub repository, chunks source files, generates emb
 - APIs: Node.js route handlers
 - Embeddings: OpenAI `text-embedding-3-small`
 - LLM: OpenAI `gpt-4o-mini`
-- Storage: In-memory vector store
+- Storage: Pinecone vector database (with automatic in-memory fallback if Pinecone env is not set)
 
 ## Architecture Diagram (ASCII)
 
@@ -41,7 +41,7 @@ RepoRAG Explorer ingests a GitHub repository, chunks source files, generates emb
        │                             └────────────────┘
        ▼
 ┌──────────────────────┐
-│ In-memory Vector DB  │
+│  Pinecone Vector DB  │
 │ (cosine similarity)  │
 └──────────────────────┘
 ```
@@ -52,7 +52,7 @@ RepoRAG Explorer ingests a GitHub repository, chunks source files, generates emb
 2. It extracts supported source files (`.ts`, `.tsx`, `.js`, `.jsx`, `.py`, `.md`).
 3. File content is split into 500-800 character chunks.
 4. Each chunk is converted into an embedding vector.
-5. Vectors are stored with metadata (file path/name + chunk text).
+5. Vectors are stored in Pinecone with metadata (file path/name + chunk text).
 6. On query, the question is embedded and compared to stored vectors.
 7. Top matching chunks are passed to `gpt-4o-mini` to produce a grounded answer.
 
@@ -92,7 +92,15 @@ Create `.env.local`:
 
 ```bash
 OPENAI_API_KEY=your_openai_api_key
+PINECONE_API_KEY=your_pinecone_api_key
+PINECONE_INDEX_NAME=your_index_name
+PINECONE_NAMESPACE=repo-rag-default
 ```
+
+Pinecone index requirements:
+- Dimension: `1536` (for `text-embedding-3-small`)
+- Metric: `cosine`
+- Type: Serverless index
 
 ## Local Setup
 
@@ -116,9 +124,9 @@ Open http://localhost:3000 and navigate to `/explorer`.
 
 1. Push the project to GitHub.
 2. Import the repository in Vercel.
-3. Set environment variable `OPENAI_API_KEY` in Vercel project settings.
+3. Set environment variables `OPENAI_API_KEY`, `PINECONE_API_KEY`, and `PINECONE_INDEX_NAME` in Vercel project settings.
 4. Deploy.
 
 Notes:
-- The vector store is in-memory. It resets on restart/redeploy.
-- For production persistence, replace with a durable vector database.
+- With Pinecone configured, vectors persist across serverless invocations and redeploys.
+- If Pinecone env vars are omitted, app falls back to in-memory vectors for local demo use.

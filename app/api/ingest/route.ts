@@ -38,11 +38,8 @@ export async function POST(request: Request) {
 
     const vectors = await embedTexts(chunksForIndexing.map((chunk) => chunk.text));
 
-    vectorStore.clear();
-
-    chunksForIndexing.forEach((chunk, index) => {
-      vectorStore.addEmbedding(chunk, vectors[index]);
-    });
+    await vectorStore.clear();
+    await vectorStore.addEmbeddings(chunksForIndexing, vectors);
 
     const uiFiles = loadedRepo.files.slice(0, MAX_UI_FILES).map((file) => ({
       ...file,
