@@ -8,7 +8,11 @@ function getClient() {
     throw new Error("OPENAI_API_KEY is not configured.");
   }
 
-  return new OpenAI({ apiKey });
+  return new OpenAI({
+    apiKey,
+    maxRetries: 5,
+    timeout: 120_000,
+  });
 }
 
 export async function embedText(text: string): Promise<number[]> {
